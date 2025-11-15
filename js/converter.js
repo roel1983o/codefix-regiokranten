@@ -270,7 +270,8 @@ function convertNhToLb(nhCode) {
     parts.push("</quote>");
   });
 
-  let lbCode = parts.join("\\n");
+  // BELANGRIJK: echte newlines in plaats van de letterlijke string "\n"
+  let lbCode = parts.join("\n");
   lbCode = adjustQuotes(lbCode);
   return lbCode;
 }
@@ -294,7 +295,7 @@ function setupUi() {
       return;
     }
     const converted = convertNhToLb(src);
-    outputEl.value = converted;
+    outputEl.value = converted;  // textarea toont nu echte enters
     outputSection.style.display = "block";
     copyStatus.textContent = "";
   });
