@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Artikel codefix</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <main class="page">
+    <h1>Artikel codefix</h1>
+
+    <section class="panel">
+      <label for="inputCode" class="label">NH-code (bron)</label>
+      <textarea id="inputCode" class="textarea" placeholder="Plak hier de NH-code..."></textarea>
+      <button id="convertButton" class="button primary">
+        Van Noord-Holland naar Limburg
+      </button>
+    </section>
+
+    <section class="panel" id="outputSection" style="display:none;">
+      <label for="outputCode" class="label">LB-code (resultaat)</label>
+      <textarea id="outputCode" class="textarea" readonly></textarea>
+      <button id="copyButton" class="button secondary">
+        Kopieer naar klembord
+      </button>
+      <p id="copyStatus" class="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script src="js/converter.js"></script>
+</body>
+</html>
