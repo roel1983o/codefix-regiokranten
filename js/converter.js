@@ -1,56 +1,86 @@
-// Artikel codefix – NH → LB converter (mappingregels versie 5) in JavaScript
+// Artikel codefix – NH → LB converter (mappingregels versie 5) – robuuste tag-parser
 
-// --- Hulpfuncties ---
+// ---------- Hulpfuncties voor tags ----------
 
 function extractFirst(text, tag) {
-  const re = new RegExp(`<${tag}>([\s\S]*?)</${tag}>`);
-  const m = text.match(re);
-  return m ? m[1] : "";
+  const open = `<${tag}>`;
+  const close = `</${tag}>`;
+  const start = text.indexOf(open);
+  if (start === -1) return "";
+  const end = text.indexOf(close, start + open.length);
+  if (end === -1) return "";
+  return text.slice(start + open.length, end);
 }
 
 function extractAll(text, tag) {
-  const re = new RegExp(`<${tag}>([\s\S]*?)</${tag}>`, "g");
+  const open = `<${tag}>`;
+  const close = `</${tag}>`;
   const result = [];
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    result.push(m[1]);
+  let idx = 0;
+  while (true) {
+    const start = text.indexOf(open, idx);
+    if (start === -1) break;
+    const end = text.indexOf(close, start + open.length);
+    if (end === -1) break;
+    result.push(text.slice(start + open.length, end));
+    idx = end + close.length;
   }
   return result;
 }
 
 function stripTagWithContent(text, tag) {
-  const re = new RegExp(`<${tag}>([\s\S]*?)</${tag}>`, "g");
-  return text.replace(re, "");
+  const open = `<${tag}>`;
+  const close = `</${tag}>`;
+  let idx = 0;
+  let out = "";
+  while (true) {
+    const start = text.indexOf(open, idx);
+    if (start === -1) {
+      out += text.slice(idx);
+      break;
+    }
+    out += text.slice(idx, start);
+    const end = text.indexOf(close, start + open.length);
+    if (end === -1) break;
+    idx = end + close.length;
+  }
+  return out;
 }
 
+// head_subdeck2 en varianten als head_subdeck2(1)
 function extractHeadSubdeckBlocks(text) {
-  const re = new RegExp(`<head_subdeck2(?:\\(\\d+\\))?>([\\s\\S]*?)</head_subdeck2(?:\\(\\d+\\))?>`, "g");
   const result = [];
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    result.push(m[1]);
+  let idx = 0;
+  while (true) {
+    const start = text.indexOf("<head_subdeck2", idx);
+    if (start === -1) break;
+    const tagEnd = text.indexOf(">", start);
+    if (tagEnd === -1) break;
+    const openTag = text.slice(start, tagEnd + 1); // "<head_subdeck2>" of "<head_subdeck2(1)>"
+    const tagName = openTag.slice(1, -1);          // "head_subdeck2" of "head_subdeck2(1)"
+    const closeTag = `</${tagName}>`;
+    const end = text.indexOf(closeTag, tagEnd + 1);
+    if (end === -1) break;
+    result.push(text.slice(tagEnd + 1, end));
+    idx = end + closeTag.length;
   }
   return result;
 }
 
+// ---------- Overige helpers ----------
+
 function removeSuTags(text) {
-  // Verwijder <SU ...> en </SU>
-  text = text.replace(/<SU[^>]*>/g, "");
-  text = text.replace(/<\/SU>/g, "");
-  return text;
+  return text.replace(/<SU[^>]*>/g, "").replace(/<\/SU>/g, "");
 }
 
 function adjustQuotes(text) {
-  // Dubbele quotes
   text = text.replace(/,,/g, "„");
   text = text.replace(/’’/g, "”");
-  // Enkele openende quotes: whitespace+’ -> whitespace+‘
   text = text.replace(/(^|\s)’/g, (m, p1) => p1 + "‘");
   return text;
 }
 
 function normalizeLeadout(text) {
-  // Verwijder <leadout>-tags maar behoud inhoud, zorg dat die eindigt op . ? of !
   const re = /<leadout>(.*?)(\s*)<\/leadout>/gs;
   return text.replace(re, (_match, inner, trailing = "") => {
     let stripped = inner.replace(/\s+$/g, "");
@@ -68,7 +98,7 @@ function stripAllTags(text) {
   return text.replace(/<[^>]+>/g, "");
 }
 
-// --- Kern: NH → LB ---
+// ---------- Kernconverter ----------
 
 function convertNhToLb(nhCode) {
   let nh = removeSuTags(nhCode);
@@ -107,7 +137,6 @@ function convertNhToLb(nhCode) {
   let auteursnaam = "";
 
   if (hasNrc) {
-    // NRC-case: ondertekening als bron
     auteursnaam = extractFirst(nh, "ondertekening").trim();
     auteursnaam = auteursnaam.replace("© NRC", "").trim();
     if (auteursnaam) {
@@ -117,14 +146,12 @@ function convertNhToLb(nhCode) {
     }
     zustertitel = "";
   } else {
-    // IX/XH of byline
     const m = nh.match(/<IX><XH>([\s\S]*?)<QL>/);
     if (m) {
       auteursnaam = m[1].trim();
     } else {
       let bylineBlock = extractFirst(nh, "byline").trim();
       if (bylineBlock) {
-        // nested dateline weghalen
         bylineBlock = bylineBlock.replace(/<dateline>([\s\S]*?)<\/dateline>/g, "");
         let temp = bylineBlock;
         temp = temp.replace(/<\/?bold>/g, "");
@@ -151,7 +178,6 @@ function convertNhToLb(nhCode) {
     }
   }
 
-  // [CHAPEAU]
   const chapeau = "TREFWOORD";
 
   // [CITAAT] + [PERSOON]
@@ -244,12 +270,12 @@ function convertNhToLb(nhCode) {
     parts.push("</quote>");
   });
 
-  let lbCode = parts.join("\n");
+  let lbCode = parts.join("\\n");
   lbCode = adjustQuotes(lbCode);
   return lbCode;
 }
 
-// --- UI wiring ---
+// ---------- UI ----------
 
 function setupUi() {
   const inputEl = document.getElementById("inputCode");
